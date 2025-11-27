@@ -4,9 +4,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const graphContainer = document.getElementById("graph-container");
     const statusPanel = document.getElementById("status-panel");
     const statusText = document.getElementById("status-text");
-    const statusDot = document.querySelector(".status-dot");
+    const statusDot = document.querySelector("#status-panel .status-dot");
     const nodeCountEl = document.getElementById("node-count");
     const edgeCountEl = document.getElementById("edge-count");
+    const serverStatusDot = document.getElementById("server-status-dot");
 
     // Modal Elements
     const errorModal = document.getElementById("error-modal");
@@ -93,6 +94,33 @@ document.addEventListener("DOMContentLoaded", () => {
         statusDot.style.boxShadow = "0 0 8px #ef4444";
     }
 
+    function setServerStatus(connected) {
+        if (!serverStatusDot) return;
+        if (connected) {
+            serverStatusDot.style.backgroundColor = "#4ade80";
+            serverStatusDot.style.boxShadow = "0 0 8px #4ade80";
+            serverStatusDot.setAttribute("title", "服务器已连接");
+        } else {
+            serverStatusDot.style.backgroundColor = "#ef4444";
+            serverStatusDot.style.boxShadow = "0 0 8px #ef4444";
+            serverStatusDot.setAttribute("title", "服务器未连接");
+        }
+    }
+
+    async function pingServer() {
+        try {
+            const resp = await fetch("http://127.0.0.1:5001/check-planarity", { method: "GET", mode: "cors" });
+            const reachable = resp.ok || resp.status === 404 || resp.status === 405;
+            setServerStatus(reachable);
+        } catch (e) {
+            setServerStatus(false);
+        }
+    }
+
+    setServerStatus(false);
+    pingServer();
+    setInterval(pingServer, 10000);
+
     async function handleFile(file) {
         // Update UI to loading state
         statusPanel.style.display = "block";
@@ -109,19 +137,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const formData = new FormData();
         formData.append("file", file);
 
-        try {
-            let data;
             try {
-                const response = await fetch("http://127.0.0.1:5001/check-planarity", {
-                    method: "POST",
-                    body: formData
-                });
-                if (!response.ok) throw new Error("Backend error");
-                data = await response.json();
-            } catch (err) {
-                console.warn("Backend connection failed, using mock data.", err);
-                data = mockResponse(file.name);
-            }
+                let data;
+                try {
+                    const response = await fetch("http://127.0.0.1:5001/check-planarity", {
+                        method: "POST",
+                        body: formData
+                    });
+                    if (!response.ok) throw new Error("Backend error");
+                    data = await response.json();
+                    setServerStatus(true);
+                } catch (err) {
+                    console.warn("Backend connection failed, using mock data.", err);
+                    data = mockResponse(file.name);
+                    setServerStatus(false);
+                }
 
             // Check for Invalid Input from Backend
             if (data.status === "InvalidInput") {
