@@ -12,21 +12,62 @@ CORS(app)
 # parse graph from txt
 def parse_graph_from_text(content):
     """
-    假设用户上传的文件是简单的“边列表”格式，例如：
-    0 1
-    1 2
-    2 0
-    每一行代表一条边，连接两个点。
+    解析图数据，如果格式严重不符，返回 None
     """
-    G = nx.Graph()
-    lines = content.split('\n')
-    for line in lines:
-        parts = line.strip().split()
-        if len(parts) >= 2:
-            # 读取两个点，转成整数（或者保持字符串也可以）
-            u, v = parts[0], parts[1]
-            G.add_edge(u, v)
-    return G
+    try:
+        G = nx.Graph()
+        # 去除首尾空白，按行分割
+        raw_lines = content.strip().split('\n')
+        # 过滤掉纯空行
+        lines = [line.strip() for line in raw_lines if line.strip()]
+
+        if not lines:
+            return None  # 文件是空的
+
+        # 简单的启发式判断：看第一行
+        first_row_parts = lines[0].split()
+        num_cols = len(first_row_parts)
+
+        # === 格式 A: 邻接矩阵 (列数 > 2 且 行数 > 1) ===
+        if num_cols > 2 and len(lines) > 1:
+            print("尝试按邻接矩阵解析...")
+            # 简单的矩阵形状检查：行数是否等于列数？(可选，不做太严也可以)
+            if len(lines) != num_cols:
+                print("警告：矩阵行列数不一致，可能格式有误，但在尝试解析")
+
+            for r, line in enumerate(lines):
+                values = line.split()
+                # 如果某一行列数不对，这肯定是个坏文件
+                if len(values) != num_cols:
+                    return None
+                for c, val in enumerate(values):
+                    if val != '0':
+                        G.add_edge(str(r), str(c))
+
+        # === 格式 B: 边列表 (每行至少 2 个元素) ===
+        else:
+            print("尝试按边列表解析...")
+            for line in lines:
+                parts = line.split()
+                # 关键检查：边列表每一行必须至少有两个点 (u v)
+                if len(parts) < 2:
+                    # 如果遇到像 "Note: xxx" 这种奇怪的行，直接视为格式非法
+                    # 或者你可以选择跳过 (continue)，但既然要是严格检查，就 return None
+                    return None
+
+                u, v = parts[0].strip(), parts[1].strip()
+                G.add_edge(u, v)
+
+        # === 最终检查 ===
+        # 如果折腾半天一个点都没读出来，说明这文件是垃圾
+        if G.number_of_nodes() == 0:
+            return None
+
+        return G
+
+    except Exception as e:
+        print(f"解析过程发生严重错误: {e}")
+        return None
 
 
 # --- 2. 定义接口：上传文件的入口 ---
@@ -46,9 +87,13 @@ def check_planarity():
         # B. 解析图数据
         G = parse_graph_from_text(content)
 
-        # 简单的验证：如果图是空的
-        if G.number_of_nodes() == 0:
-            return jsonify({"error": "解析失败，图是空的"}), 400
+        if G is None:
+            # 这里返回你要求的 InvalidInput 字段
+            return jsonify({
+                "status": "InvalidInput",  # <--- 前端靠这个字段判断
+                "message": "文件格式错误：请上传有效的邻接表(.txt)或邻接矩阵。",
+                "error_code": 400
+            }), 200  # 或者 400，看你们前端想怎么处理 HTTP 状态码
 
         # --- 核心逻辑 (Member B Work) ---
         is_planar, certificate = nx.check_planarity(G,counterexample=True)
