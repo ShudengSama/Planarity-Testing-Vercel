@@ -105,6 +105,23 @@
         </section>
     </main>
 
+    <!-- Error Modal -->
+    <div id="error-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" class="error-icon">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <h3>Upload Failed</h3>
+            </div>
+            <p id="error-message">Something went wrong.</p>
+            <button class="btn-primary" id="close-modal">Close</button>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 

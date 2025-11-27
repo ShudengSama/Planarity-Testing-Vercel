@@ -8,6 +8,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const nodeCountEl = document.getElementById("node-count");
     const edgeCountEl = document.getElementById("edge-count");
 
+    // Modal Elements
+    const errorModal = document.getElementById("error-modal");
+    const errorMessage = document.getElementById("error-message");
+    const closeModalBtn = document.getElementById("close-modal");
+
+    // Close Modal Event
+    closeModalBtn.addEventListener("click", () => {
+        errorModal.classList.remove("show");
+        setTimeout(() => {
+            errorModal.style.display = "none";
+        }, 300);
+    });
+
     // Initialize D3 Zoom (Removed: handled per graph instance)
 
     // Setup Drag & Drop
@@ -33,6 +46,19 @@ document.addEventListener("DOMContentLoaded", () => {
             handleFile(e.target.files[0]);
         }
     });
+
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorModal.style.display = "flex";
+        // Trigger reflow
+        void errorModal.offsetWidth;
+        errorModal.classList.add("show");
+
+        // Reset Status Panel
+        statusText.textContent = "Error";
+        statusDot.style.backgroundColor = "#ef4444";
+        statusDot.style.boxShadow = "0 0 8px #ef4444";
+    }
 
     async function handleFile(file) {
         // Update UI to loading state
@@ -64,15 +90,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 data = mockResponse(file.name);
             }
 
+            // Check for Invalid Input from Backend
+            if (data.status === "InvalidInput") {
+                showError(data.message || "Invalid file format.");
+                return;
+            }
+
             renderGraph(data);
             updateStats(data);
 
         } catch (error) {
             console.error("Error:", error);
-            statusText.textContent = "Error";
-            statusDot.style.backgroundColor = "#ef4444"; // Red
-            statusDot.style.boxShadow = "0 0 8px #ef4444";
-            alert("Failed to process graph: " + error.message);
+            showError("Failed to process graph: " + error.message);
         }
     }
 
