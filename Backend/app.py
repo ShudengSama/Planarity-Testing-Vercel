@@ -51,7 +51,7 @@ def check_planarity():
             return jsonify({"error": "解析失败，图是空的"}), 400
 
         # --- 核心逻辑 (Member B Work) ---
-        is_planar, certificate = nx.check_planarity(G)
+        is_planar, certificate = nx.check_planarity(G,counterexample=True)
 
         if is_planar:
             # 如果是平面图，计算坐标
@@ -78,27 +78,70 @@ def check_planarity():
             # 如果是非平面图
             # certificate 是反例 (Kuratowski subgraph)
             # 标记冲突边
+
+            # === 调试代码 Start ===
+            print(f"检测结果: is_planar={is_planar}")
+            print(f"反例对象类型: {type(certificate)}")
+            if certificate:
+                print(f"反例中的边数: {len(certificate.edges())}")
+                print(f"反例中的前两条边: {list(certificate.edges())[:2]}")
+            else:
+                print("警告：certificate 对象为空！")
+
+            # 打印原图的一条边，看看数据类型
+            sample_edge = list(G.edges())[0]
+            print(f"原图样本边: {sample_edge}, 点的类型: {type(sample_edge[0])}")
+            # === 调试代码 End ===
+
+            # (下面是你原本的代码...)
             conflict_edges = set()
             if certificate:
                 for u, v in certificate.edges():
                     conflict_edges.add(frozenset([str(u), str(v)]))
-            
-            nodes = [{"id": str(n)} for n in G.nodes()]
+
+            conflict_type = "Unknown"
+            if certificate:
+                # 统计反例中度数大于 2 的“骨干节点”数量
+                # K5: 骨干节点有 5 个（每个度数是 4）
+                # K3,3: 骨干节点有 6 个（每个度数是 3）
+
+                # 这里只要统计度数 > 2 的节点个数通常就足够区分了
+                principal_nodes = [n for n, d in certificate.degree() if d > 2]
+                count = len(principal_nodes)
+
+                if count == 5:
+                    conflict_type = "K5"
+                elif count == 6:
+                    conflict_type = "K3,3"
+                else:
+                    # 理论上不会走到这，除非图结构非常复杂，暂且标为 Complex
+                    conflict_type = "Complex Non-Planar"
+
+            # 调试打印一下，自己看着爽
+            print(f"检测到的冲突类型: {conflict_type}")
+            # ======================================
+
+            # 2. 构建返回数据 (更新 JSON)
+            nodes = [{"id": str(n).strip()} for n in G.nodes()]
             edges = []
             for u, v in G.edges():
-                is_conflict = frozenset([str(u), str(v)]) in conflict_edges
+                u_str = str(u).strip()
+                v_str = str(v).strip()
+                is_conflict = frozenset([u_str, v_str]) in conflict_edges
                 edges.append({
-                    "source": str(u), 
-                    "target": str(v), 
+                    "source": u_str,
+                    "target": v_str,
                     "is_conflict": is_conflict
                 })
 
             return jsonify({
                 "status": "non_planar",
+                "type": conflict_type,  # <--- 把这个新字段传给前端
                 "nodes": nodes,
                 "edges": edges,
-                "message": "Graph is not planar."
+                "message": f"Graph is not planar. Contains a {conflict_type} subgraph."
             })
+
 
     except Exception as e:
         print(f"Error: {e}")
