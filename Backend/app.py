@@ -74,5 +74,5 @@ def check_planarity():
 
 # 3. 启动服务
 if __name__ == '__main__':
-    print("后端服务已启动: http://localhost:5000")
-    app.run(debug=True, port=5000)
+    print("后端服务已启动: http://localhost:5001")
+    app.run(debug=True, port=5001)
