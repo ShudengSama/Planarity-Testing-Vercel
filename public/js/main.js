@@ -17,6 +17,9 @@ document.addEventListener("DOMContentLoaded", () => {
     initModal();
     initDivider();
 
+    let lastUploadedFile = null;
+    let currentGraphData = null;
+
     // Initialize Graph Editor
     const editor = new GraphEditor();
     const editorView = document.getElementById('editor-view');
@@ -25,6 +28,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('open-editor-btn').addEventListener('click', () => {
         mainSplitView.style.display = 'none';
         editorView.classList.remove('hidden');
+        
+        // Sync current graph data to editor if available
+        if (currentGraphData) {
+            editor.loadGraph(currentGraphData);
+        }
+        
         // Trigger resize to ensure SVG size is correct
         window.dispatchEvent(new Event('resize'));
     });
@@ -87,6 +96,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // File Handling
     async function handleFile(file) {
+        lastUploadedFile = file;
         setLoadingState();
         resetGraphUI(); // Clear previous graph and reset UI
 
@@ -95,6 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (result.success) {
             setServerStatus(result.serverConnected);
             const data = result.data;
+            currentGraphData = data;
 
             // Check for Invalid Input
             if (data.status === "InvalidInput") {
@@ -108,6 +119,17 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error("Error:", result.error);
             showError("Failed to process graph: " + (result.error.message || result.error));
         }
+    }
+
+    // Reload Button
+    if (UI.reloadBtn) {
+        UI.reloadBtn.addEventListener('click', () => {
+            if (lastUploadedFile) {
+                handleFile(lastUploadedFile);
+            } else {
+                showError("No file loaded to reload.");
+            }
+        });
     }
 
     // Drag & Drop
@@ -132,6 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
     UI.fileInput.addEventListener("change", (e) => {
         if (e.target.files.length) {
             handleFile(e.target.files[0]);
+            e.target.value = ''; // Reset input to allow re-uploading same file
         }
     });
 });

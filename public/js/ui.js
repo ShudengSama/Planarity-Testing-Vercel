@@ -18,6 +18,7 @@ export const UI = {
     conflictType: document.getElementById("conflict-type"),
     playAnimationBtn: document.getElementById("play-animation"),
     resetGraphBtn: document.getElementById("reset-graph"),
+    reloadBtn: document.getElementById("reload-analysis"),
     enablePhysicsPlanarBtn: document.getElementById("enable-physics-planar"),
     resetPlanarBtn: document.getElementById("reset-planar"),
     animationControls: document.getElementById("animation-controls"),
