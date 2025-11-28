@@ -4,6 +4,7 @@ import networkx as nx
 import io
 import json
 import os
+import time
 
 # Initialize flask app
 app = Flask(__name__)
@@ -146,6 +147,30 @@ def parse_graph_file(file):
 
     return G
 
+def naive_kuratowski_search(G):
+    # 1. If the graph is already planar, return True immediately
+    if nx.is_planar(G):
+        return True, None
+
+    # 2. Create a copy of the graph for destructive testing
+    K = G.copy()
+    edges_to_check = list(K.edges())
+
+    # 3. Brute-force loop: Attempt to remove every edge
+    for u, v in edges_to_check:
+        # Temporarily remove edge (u, v)
+        K.remove_edge(u, v)
+        
+        # Critical: Run a full planarity check after every removal (this is the bottleneck!)
+        if nx.is_planar(K):
+            # If removing this edge makes the graph planar, it is a critical "culprit". Keep it!
+            K.add_edge(u, v)
+        else:
+            # If the graph remains non-planar without this edge, it is redundant. Permanently remove it.
+            pass
+            
+    # After the loop, K contains the minimal non-planar subgraph (Kuratowski subgraph)
+    return False, K
 
 # === 3. Routes ===
 @app.route('/api/check-planarity', methods=['POST'])
@@ -154,6 +179,7 @@ def check_planarity():
         return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files['file']
+    algorithm = request.form.get('algorithm', 'Left-Right')
 
     # Use the master dispatcher
     G = parse_graph_file(file)
@@ -166,43 +192,109 @@ def check_planarity():
         }), 200
 
     try:
-        # Check Planarity
-        is_planar, certificate = nx.check_planarity(G, counterexample=True)
-        scale = 500
-
-        # === Layout Logic ===
-        if is_planar:
-            try:
-                # Prefer Planar Layout for clean drawing
-                pos = nx.planar_layout(certificate)
-            except:
-                # Fallback if planar_layout fails (rare)
-                pos = nx.spring_layout(G, seed=42)
-        else:
-            # Non-Planar: MUST use spring_layout (Force-Directed)
-            pos = nx.spring_layout(G, seed=42)
-
-        # Serialize Nodes (Now always includes x/y)
-        nodes = [{"id": str(n), "x": xy[0] * scale, "y": xy[1] * scale} for n, xy in pos.items()]
-
-        # Handle Conflicts (if any)
+        is_planar = False
+        certificate = None
         conflict_edges = set()
         conflict_type = "None"
+        algo_name = ""
 
-        if not is_planar:
-            if certificate:
+
+        if algorithm == 'Left-Right':
+            algo_name = "Left-Right (NetworkX)"
+            print("Using Left-Right")
+        # Check Planarity
+
+            start_time = time.perf_counter()
+            is_planar, certificate = nx.check_planarity(G, counterexample=False)
+            end_time = time.perf_counter()
+
+            is_planar, certificate = nx.check_planarity(G, counterexample=True)
+
+            scale = 500
+
+
+        # === Layout Logic ===
+            if is_planar:
+                try:
+                    # Prefer Planar Layout for clean drawing
+                    pos = nx.planar_layout(certificate)
+                except:
+                    # Fallback if planar_layout fails (rare)
+                    pos = nx.spring_layout(G, seed=42)
+            else:
+                # Non-Planar: MUST use spring_layout (Force-Directed)
+                pos = nx.spring_layout(G, seed=42)
+
+            # Serialize Nodes (Now always includes x/y)
+            nodes = [{"id": str(n), "x": xy[0] * scale, "y": xy[1] * scale} for n, xy in pos.items()]
+
+
+            if not is_planar:
+                if certificate:
+                    for u, v in certificate.edges():
+                        conflict_edges.add(frozenset([str(u), str(v)]))
+
+
+
+
+        elif algorithm == 'kuratowski_search':
+            algo_name = "Kuratowski Search (Brute Force)"
+            print("Using kuratowski_search")
+
+            start_time = time.perf_counter()
+            # Call the brute-force search function
+            is_planar, certificate = naive_kuratowski_search(G)
+            end_time = time.perf_counter()
+
+            scale = 500
+
+
+            # === Layout Logic ===
+            if is_planar:
+                try:
+
+                    tmep, certificate = nx.check_planarity(G, counterexample=True)
+                    # Check if certificate exists and is an Embedding object
+                    if certificate is not None and isinstance(certificate, nx.PlanarEmbedding):
+                        pos = nx.planar_layout(certificate)
+                    else:
+                        # If the brute-force algorithm returned True, None, we have no embedding info,
+                        # so we can only use a standard layout (Kamada-Kawai looks better, or Spring)
+                        pos = nx.spring_layout(G, seed=42)
+                except Exception as e:
+                    print(f"Layout fallback: {e}")
+                    pos = nx.spring_layout(G, seed=42)
+            else:
+                # Non-Planar: MUST use spring_layout (Force-Directed)
+                pos = nx.spring_layout(G, seed=42)
+
+            # Serialize Nodes (Now always includes x/y)
+            nodes = [{"id": str(n), "x": xy[0] * scale, "y": xy[1] * scale} for n, xy in pos.items()]
+            
+            # Non-Planar: MUST use spring_layout (Force-Directed)
+            if not is_planar and certificate:
                 for u, v in certificate.edges():
                     conflict_edges.add(frozenset([str(u), str(v)]))
 
-                # Identify Subgraph Type
-                principal_nodes = [n for n, d in certificate.degree() if d > 2]
-                if len(principal_nodes) == 5:
-                    conflict_type = "K5"
-                elif len(principal_nodes) == 6:
-                    conflict_type = "K3,3"
-                else:
-                    conflict_type = "Complex Non-Planar"
+        else:
+            return jsonify({"error": f"Unknown algorithm: {algorithm}"}), 400
 
+        execution_time_ms = round((end_time - start_time) * 1000, 2)
+        print("execution_time_ms: ", execution_time_ms)
+
+        # Identify Subgraph Type
+        if not is_planar and certificate is not None:
+            principal_nodes = [n for n, d in certificate.degree() if d > 2]
+            if len(principal_nodes) == 5:
+                conflict_type = "K5"
+            elif len(principal_nodes) == 6:
+                conflict_type = "K3,3"
+            else:
+                conflict_type = "Complex Non-Planar"
+        else:
+            # If it is a planar graph, or other cases, set type to None
+            conflict_type = "None"
+        
         # Serialize Edges
         edges = []
         for u, v in G.edges():
@@ -219,12 +311,14 @@ def check_planarity():
             "type": conflict_type,
             "nodes": nodes,
             "edges": edges,
-            "message": "Graph is Planar" if is_planar else f"Non-Planar: {conflict_type}"
+            "message": "Graph is Planar" if is_planar else f"Non-Planar: {conflict_type}",
+            "execution_time_ms": execution_time_ms
         })
 
     except Exception as e:
         print(f"Algorithm Error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == '__main__':

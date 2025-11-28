@@ -133,13 +133,36 @@ body {
     font-size: 0.9rem;
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.github-link {
+    color: var(--text-muted);
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    opacity: 0.8;
+}
+
+.github-link:hover {
+    color: var(--text-main);
+    opacity: 1;
+}
+
 /* Controls Section */
 .controls-section {
     padding: 2rem;
     border-right: 1px solid var(--glass-border);
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 1.5rem;
+    overflow-y: auto;
+    /* Enable vertical scrolling */
+    max-height: 100%;
+    /* Ensure it respects container height */
 }
 
 .upload-box {
