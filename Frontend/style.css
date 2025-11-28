@@ -212,6 +212,9 @@ body {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 12px;
     padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .status-indicator {
@@ -234,6 +237,11 @@ body {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1rem;
+}
+
+#reload-analysis:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
 .stat-item {
