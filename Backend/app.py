@@ -148,28 +148,28 @@ def parse_graph_file(file):
     return G
 
 def naive_kuratowski_search(G):
-    # 1. 如果一开始就是平面图，直接返回 True, None
+    # 1. If the graph is already planar, return True immediately
     if nx.is_planar(G):
         return True, None
 
-    # 2. 复制一份图，准备进行破坏性实验
+    # 2. Create a copy of the graph for destructive testing
     K = G.copy()
     edges_to_check = list(K.edges())
 
-    # 3. 暴力循环：尝试删除每一条边
+    # 3. Brute-force loop: Attempt to remove every edge
     for u, v in edges_to_check:
-        # 暂时删除边 (u, v)
+        # Temporarily remove edge (u, v)
         K.remove_edge(u, v)
         
-        # 关键点：每删一次，都跑一遍完整的平面检测算法 (耗时来源!)
+        # Critical: Run a full planarity check after every removal (this is the bottleneck!)
         if nx.is_planar(K):
-            # 哎呀，删了这条边图就变平面了？那这条边是“罪魁祸首”之一，不能删！
+            # If removing this edge makes the graph planar, it is a critical "culprit". Keep it!
             K.add_edge(u, v)
         else:
-            # 删了这条边，图还是非平面的？说明这条边是无辜的/多余的，永久删除！
+            # If the graph remains non-planar without this edge, it is redundant. Permanently remove it.
             pass
             
-    # 循环结束后，K 中剩下的就是纯粹的 Kuratowski 子图
+    # After the loop, K contains the minimal non-planar subgraph (Kuratowski subgraph)
     return False, K
 
 # === 3. Routes ===
@@ -242,7 +242,7 @@ def check_planarity():
             print("Using kuratowski_search")
 
             start_time = time.perf_counter()
-            # 调用暴力搜索函数
+            # Call the brute-force search function
             is_planar, certificate = naive_kuratowski_search(G)
             end_time = time.perf_counter()
 
@@ -254,12 +254,12 @@ def check_planarity():
                 try:
 
                     tmep, certificate = nx.check_planarity(G, counterexample=True)
-                    # ### 修复 1: 检查 certificate 是否存在且是 Embedding 对象
+                    # Check if certificate exists and is an Embedding object
                     if certificate is not None and isinstance(certificate, nx.PlanarEmbedding):
                         pos = nx.planar_layout(certificate)
                     else:
-                        # 如果是暴力算法返回了 True, None，我们没有嵌入信息，
-                        # 所以只能用普通布局 (Kamada-Kawai 比较好看，或者 Spring)
+                        # If the brute-force algorithm returned True, None, we have no embedding info,
+                        # so we can only use a standard layout (Kamada-Kawai looks better, or Spring)
                         pos = nx.spring_layout(G, seed=42)
                 except Exception as e:
                     print(f"Layout fallback: {e}")
@@ -271,7 +271,7 @@ def check_planarity():
             # Serialize Nodes (Now always includes x/y)
             nodes = [{"id": str(n), "x": xy[0] * scale, "y": xy[1] * scale} for n, xy in pos.items()]
             
-            # 如果非平面，certificate 就是那个剩下的子图 K
+            # Non-Planar: MUST use spring_layout (Force-Directed)
             if not is_planar and certificate:
                 for u, v in certificate.edges():
                     conflict_edges.add(frozenset([str(u), str(v)]))
@@ -292,7 +292,7 @@ def check_planarity():
             else:
                 conflict_type = "Complex Non-Planar"
         else:
-            # 如果是平面图，或者是其他情况，类型为 None
+            # If it is a planar graph, or other cases, set type to None
             conflict_type = "None"
         
         # Serialize Edges
