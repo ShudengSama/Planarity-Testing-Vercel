@@ -148,7 +148,11 @@ def parse_graph_file(file):
 
 
 # === 3. Routes ===
-@app.route('/check-planarity', methods=['POST'])
+@app.route('/', methods=['GET'])
+def home():
+    return "Planarity Testing API is running."
+
+@app.route('/api/check-planarity', methods=['POST'])
 def check_planarity():
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
