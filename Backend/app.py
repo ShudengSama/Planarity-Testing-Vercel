@@ -98,6 +98,10 @@ def parse_graph_file(file):
         if content_str.startswith('{') or content_str.startswith('['):
             print("Sniffer: Detected JSON content")
             content = json.loads(content_str)
+            
+            #map links to edges
+            if 'links' in content and 'edges' not in content:
+                content['edges'] = content['links']
             # node_link_graph expects {nodes: [], links: []}
             G = nx.node_link_graph(content)
 
@@ -112,6 +116,10 @@ def parse_graph_file(file):
                 G = nx.read_graphml(io.BytesIO(file_bytes))
 
         # === STRATEGY 2: Extension Dispatch (Fallback) ===
+        elif filename.endswith('.json'):
+            print("Extension: Detected JSON file")
+            content = json.loads(content_str)
+            G = nx.node_link_graph(content)
         elif filename.endswith('.gml'):
             G = nx.read_gml(io.BytesIO(file_bytes))
         elif filename.endswith('.dot') or filename.endswith('.gv'):
