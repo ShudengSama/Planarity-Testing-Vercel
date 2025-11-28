@@ -278,6 +278,7 @@ def check_planarity():
             return jsonify({"error": f"Unknown algorithm: {algorithm}"}), 400
 
         execution_time_ms = round((end_time - start_time) * 1000, 2)
+        print("execution_time_ms: ", execution_time_ms)
 
         # Identify Subgraph Type
         if not is_planar and certificate is not None:
