@@ -10,11 +10,71 @@ import {
 } from './ui.js';
 import { checkPlanarity, pingServer } from './api.js';
 import { renderGraph } from './visualization.js';
+import { GraphEditor } from './editor.js';
 
 document.addEventListener("DOMContentLoaded", () => {
     // Initialize UI components
     initModal();
     initDivider();
+
+    // Initialize Graph Editor
+    const editor = new GraphEditor();
+    const editorView = document.getElementById('editor-view');
+    const mainSplitView = document.getElementById('main-split-view');
+
+    document.getElementById('open-editor-btn').addEventListener('click', () => {
+        mainSplitView.style.display = 'none';
+        editorView.classList.remove('hidden');
+        // Trigger resize to ensure SVG size is correct
+        window.dispatchEvent(new Event('resize'));
+    });
+
+    document.getElementById('editor-close').addEventListener('click', () => {
+        editorView.classList.add('hidden');
+        mainSplitView.style.display = 'flex';
+    });
+
+    document.getElementById('editor-analyze').addEventListener('click', () => {
+        const file = editor.getGraphAsFile();
+        if (file) {
+            editorView.classList.add('hidden');
+            mainSplitView.style.display = 'flex';
+            handleFile(file);
+        } else {
+            showError("Please draw a graph first.");
+        }
+    });
+
+    // Editor Import
+    const editorFileInput = document.getElementById('editor-file-input');
+    document.getElementById('editor-import').addEventListener('click', () => {
+        editorFileInput.click();
+    });
+
+    editorFileInput.addEventListener('change', async (e) => {
+        if (e.target.files.length) {
+            const file = e.target.files[0];
+            // Use checkPlanarity to parse the file via backend
+            // We don't need to show loading state on main UI, maybe just a cursor wait?
+            document.body.style.cursor = 'wait';
+
+            const result = await checkPlanarity(file);
+            document.body.style.cursor = 'default';
+
+            if (result.success) {
+                if (result.data.status === "InvalidInput") {
+                    showError(result.data.message || "Invalid file format.");
+                } else {
+                    editor.loadGraph(result.data);
+                }
+            } else {
+                showError("Failed to import graph: " + (result.error.message || result.error));
+            }
+
+            // Reset input
+            editorFileInput.value = '';
+        }
+    });
 
     // Server Status Check
     async function checkServer() {

@@ -18,7 +18,8 @@ export function renderGraph(data) {
         forceDirected: true,
         startStopped: true, // Default to no physics effect initially
         highlightConflicts: false,
-        staticCoords: false
+        staticCoords: false,
+        draggable: false
     });
 
     // 2. Render Result
@@ -28,7 +29,7 @@ export function renderGraph(data) {
             highlightConflicts: false,
             staticCoords: true
         });
-        
+
         // Show Enable Physics Button for Planar Graph
         const enablePhysicsBtn = document.getElementById("enable-physics-planar");
         if (enablePhysicsBtn) {
@@ -84,6 +85,53 @@ function renderSingleGraph(containerId, data, options) {
         .join("g")
         .attr("class", "node");
 
+    if (options.draggable !== false) {
+        node.call(d3.drag()
+            .on("start", function (event, d) {
+                // Check if we should restart physics
+                const enableBtn = document.getElementById("enable-physics-planar");
+                // Physics is enabled if:
+                // 1. It's not a static coord graph (always enabled)
+                // 2. OR the enable button exists and is hidden (user clicked enable)
+                // 3. OR the enable button doesn't exist (not the planar result view)
+                const isPhysicsEnabled = !options.staticCoords ||
+                    (enableBtn && enableBtn.classList.contains("hidden")) ||
+                    (!enableBtn && containerId !== "#result-graph");
+
+                if (isPhysicsEnabled) {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                }
+                d.fx = d.x;
+                d.fy = d.y;
+            })
+            .on("drag", function (event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+
+                // Manual update for responsiveness (and required if stopped)
+                d.x = event.x;
+                d.y = event.y;
+                d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
+                link.filter(e => e.source === d || e.target === d)
+                    .attr("x1", e => e.source.x)
+                    .attr("y1", e => e.source.y)
+                    .attr("x2", e => e.target.x)
+                    .attr("y2", e => e.target.y);
+            })
+            .on("end", function (event, d) {
+                const enableBtn = document.getElementById("enable-physics-planar");
+                const isPhysicsEnabled = !options.staticCoords ||
+                    (enableBtn && enableBtn.classList.contains("hidden")) ||
+                    (!enableBtn && containerId !== "#result-graph");
+
+                if (isPhysicsEnabled) {
+                    if (!event.active) simulation.alphaTarget(0);
+                }
+                // Leave fx/fy set to keep node pinned at new position
+            })
+        );
+    }
+
     node.append("circle")
         .attr("r", 6);
 
@@ -105,19 +153,19 @@ function renderSingleGraph(containerId, data, options) {
     if (options.staticCoords && nodes[0].x !== undefined) {
         // Stop simulation immediately to prevent force layout from running
         simulation.stop();
-        
+
         // Use static coordinates from data
         // Note: nodes passed to forceSimulation are the same objects
         // But forceSimulation might have overwritten x,y with initial randoms if we didn't be careful?
         // Actually, d3.forceSimulation(nodes) uses existing x,y if present.
         // So we just need to ensure we don't let it tick.
-        
+
         // Update DOM positions immediately
         ticked();
-        
+
         // Zoom to fit after static layout is ready
         zoomToFit();
-        
+
     } else if (options.startStopped) {
         // For Original Input (forceDirected but startStopped)
         // We let the simulation initialize (calculate starting positions) but stop it.
@@ -131,13 +179,13 @@ function renderSingleGraph(containerId, data, options) {
         // But the user said "make original input default to no physics".
         // If the user uploads a file with positions (like JSON), we show that.
         // If GML/Matrix without positions, D3 initializes them.
-        
+
         simulation.stop();
-        
+
         // If the nodes didn't have coordinates, D3 initialized them.
         // Let's render them.
         ticked();
-        
+
         zoomToFit();
     } else {
         // Normal running simulation
@@ -150,7 +198,7 @@ function renderSingleGraph(containerId, data, options) {
         // We can do a one-time zoomToFit after a short delay?
         // Or just let user zoom.
         // But request said "Auto zoom to fit".
-        
+
         // Let's do a zoomToFit on start.
         // But force layout expands.
         // Maybe we don't zoomToFit for running simulation continuously, just once.
@@ -173,20 +221,20 @@ function renderSingleGraph(containerId, data, options) {
 
         const xExtent = d3.extent(nodes, d => d.x);
         const yExtent = d3.extent(nodes, d => d.y);
-        
+
         if (xExtent[0] === undefined || yExtent[0] === undefined) return;
 
         const padding = 40;
         const boundsWidth = xExtent[1] - xExtent[0];
         const boundsHeight = yExtent[1] - yExtent[0];
-        
+
         const midX = (xExtent[0] + xExtent[1]) / 2;
         const midY = (yExtent[0] + yExtent[1]) / 2;
-        
+
         // If bounds are tiny (single point), default to scale 1
         if (boundsWidth === 0 || boundsHeight === 0) {
-             svg.call(zoom.transform, d3.zoomIdentity.translate(width/2 - midX, height/2 - midY));
-             return;
+            svg.call(zoom.transform, d3.zoomIdentity.translate(width / 2 - midX, height / 2 - midY));
+            return;
         }
 
         const scaleX = (width - padding * 2) / boundsWidth;
@@ -198,7 +246,7 @@ function renderSingleGraph(containerId, data, options) {
         // The transform is: newX = k * x + tx
         // We want: center = k * mid + tx
         // tx = center - k * mid
-        
+
         const tx = width / 2 - scale * midX;
         const ty = height / 2 - scale * midY;
 
@@ -209,39 +257,39 @@ function renderSingleGraph(containerId, data, options) {
 
     // Handle Planar Graph Physics Toggle
     if (containerId === "#result-graph" && options.staticCoords) {
-         const enablePhysicsBtn = document.getElementById("enable-physics-planar");
-         const resetPlanarBtn = document.getElementById("reset-planar");
-         
-         if (enablePhysicsBtn && resetPlanarBtn) {
-             // Clean up old event listeners (not strictly necessary as we replace elements or listeners, but good practice if elements persist)
-             // Since we re-render the graph, the button elements are outside the graph container, so they persist.
-             // We need to be careful not to stack listeners?
-             // Actually, `onclick` property assignment overwrites previous handler. safely.
-             
-             enablePhysicsBtn.onclick = () => {
-                 enablePhysicsBtn.classList.add("hidden");
-                 enablePhysicsBtn.style.display = "none";
-                 resetPlanarBtn.classList.remove("hidden");
-                 resetPlanarBtn.style.display = "flex";
-                 
-                 simulation.alpha(1).restart();
-             };
-             
-             resetPlanarBtn.onclick = () => {
-                 resetPlanarBtn.classList.add("hidden");
-                 resetPlanarBtn.style.display = "none";
-                 enablePhysicsBtn.classList.remove("hidden");
-                 enablePhysicsBtn.style.display = "flex";
-                 
-                 simulation.stop();
-                 
-                 // Clear current graph container before re-rendering
-                 d3.select(containerId).selectAll("*").remove();
-                 
-                 // Re-render to reset positions
-                 renderSingleGraph(containerId, data, options);
-             };
-         }
+        const enablePhysicsBtn = document.getElementById("enable-physics-planar");
+        const resetPlanarBtn = document.getElementById("reset-planar");
+
+        if (enablePhysicsBtn && resetPlanarBtn) {
+            // Clean up old event listeners (not strictly necessary as we replace elements or listeners, but good practice if elements persist)
+            // Since we re-render the graph, the button elements are outside the graph container, so they persist.
+            // We need to be careful not to stack listeners?
+            // Actually, `onclick` property assignment overwrites previous handler. safely.
+
+            enablePhysicsBtn.onclick = () => {
+                enablePhysicsBtn.classList.add("hidden");
+                enablePhysicsBtn.style.display = "none";
+                resetPlanarBtn.classList.remove("hidden");
+                resetPlanarBtn.style.display = "flex";
+
+                simulation.alpha(1).restart();
+            };
+
+            resetPlanarBtn.onclick = () => {
+                resetPlanarBtn.classList.add("hidden");
+                resetPlanarBtn.style.display = "none";
+                enablePhysicsBtn.classList.remove("hidden");
+                enablePhysicsBtn.style.display = "flex";
+
+                simulation.stop();
+
+                // Clear current graph container before re-rendering
+                d3.select(containerId).selectAll("*").remove();
+
+                // Re-render to reset positions
+                renderSingleGraph(containerId, data, options);
+            };
+        }
     }
 
     // Bind Control Buttons
@@ -308,7 +356,7 @@ function renderCanonicalGraph(containerId, data) {
         if (n.is_principal !== undefined) {
             return n.is_principal;
         }
-        
+
         // Fallback: Calculate from edges
         if (!conflictNodeIds.has(n.id)) return false;
         const degree = conflictNodeDegrees.get(n.id);
@@ -654,7 +702,7 @@ function renderCanonicalGraph(containerId, data) {
 
         // Redraw animation edges (fly from original to canonical position)
         const edgesToShow = conflictEdgesOriginal.slice(0, currentStep);
-        
+
         // Handle entering edges (fly in)
         animEdgesGroup.selectAll(".edge.canonical")
             .data(edgesToShow, (d, i) => i)

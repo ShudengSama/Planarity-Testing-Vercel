@@ -11,6 +11,7 @@ export const UI = {
     errorMessage: document.getElementById("error-message"),
     closeModalBtn: document.getElementById("close-modal"),
     resultHeader: document.getElementById("result-header"),
+    originalHeader: document.getElementById("original-header"),
     resultPanel: document.getElementById("result-panel"),
     conflictStat: document.getElementById("conflict-stat"),
     conflictType: document.getElementById("conflict-type"),
@@ -62,6 +63,8 @@ export function setLoadingState() {
     UI.conflictStat.style.display = "none";
     UI.conflictType.textContent = "-";
     UI.resultHeader.style.color = "";
+    UI.originalHeader.textContent = "Original Input";
+    UI.resultHeader.textContent = "Analysis Result";
 }
 
 export function updateStats(data) {
@@ -73,11 +76,15 @@ export function updateStats(data) {
         UI.statusDot.style.backgroundColor = "#4ade80"; // Green
         UI.statusDot.style.boxShadow = "0 0 8px #4ade80";
         UI.resultHeader.style.color = "#4ade80";
+        UI.originalHeader.textContent = "Statistic";
+        UI.resultHeader.textContent = "Dynamic";
     } else {
         UI.statusText.textContent = "Non-Planar";
         UI.statusDot.style.backgroundColor = "#ef4444"; // Red
         UI.statusDot.style.boxShadow = "0 0 8px #ef4444";
         UI.resultHeader.style.color = "#ef4444";
+        UI.originalHeader.textContent = "Original Input";
+        UI.resultHeader.textContent = "Analysis Result";
 
         setTimeout(() => {
             UI.resultPanel.classList.add("expanded");

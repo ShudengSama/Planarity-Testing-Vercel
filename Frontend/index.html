@@ -30,7 +30,7 @@
                     <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
                     <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
                 </svg>
-                <h1>Planarity</h1>
+                <h1>Planarity Inspector</h1>
                 <span class="status-dot" id="server-status-dot" title="服务器连接状态"></span>
             </div>
             <p class="subtitle">Advanced Graph Planarity Testing & Visualization</p>
@@ -51,6 +51,15 @@
                         Files</button>
                 </div>
             </div>
+
+            <button class="btn-secondary" id="open-editor-btn" style="width: 100%;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    style="margin-right: 8px;">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                Open Graph Editor
+            </button>
 
             <div class="status-panel" id="status-panel" style="display: none;">
                 <div class="status-indicator">
@@ -75,9 +84,9 @@
         </section>
 
         <section class="visualization-section">
-            <div class="split-view">
+            <div class="split-view" id="main-split-view">
                 <div class="view-panel">
-                    <h3>Original Input</h3>
+                    <h3 id="original-header">Original Input</h3>
                     <div id="original-graph" class="graph-container">
                         <div class="empty-state">
                             <p>Upload a file to start</p>
@@ -108,7 +117,8 @@
 
                     <!-- Planar Physics Enable Button -->
                     <button class="btn-play-animation hidden" id="enable-physics-planar">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <polygon points="5 3 19 12 5 21 5 3"></polygon>
                         </svg>
                         Enable Physics
@@ -125,7 +135,8 @@
 
                     <!-- Planar Physics Reset Button (moved to bottom-left) -->
                     <button class="btn-reset-graph hidden" id="reset-planar" style="display: none;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
                             <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
                             <path d="M21 3v5h-5"></path>
                             <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
@@ -163,6 +174,68 @@
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
                             </svg>
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inline Graph Editor (Initially Hidden) -->
+            <div id="editor-view" class="editor-view hidden">
+                <div class="editor-header">
+                    <h3>Graph Editor</h3>
+                    <div class="editor-toolbar">
+                        <button class="tool-btn active" id="tool-select" title="Select/Move">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path>
+                            </svg>
+                        </button>
+                        <button class="tool-btn" id="tool-node" title="Add Node">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="16"></line>
+                                <line x1="8" y1="12" x2="16" y2="12"></line>
+                            </svg>
+                        </button>
+                        <button class="tool-btn" id="tool-edge" title="Add Edge">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <circle cx="5" cy="12" r="3"></circle>
+                                <circle cx="19" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                        <div class="divider"></div>
+                        <button class="tool-btn danger" id="tool-clear" title="Clear All">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path
+                                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                </path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="editor-actions">
+                        <input type="file" id="editor-file-input" accept=".txt,.json,.gml,.graphml,.gexf,.dot,.mtx,.net"
+                            hidden>
+                        <button class="btn-primary small" id="editor-analyze">Analyze</button>
+                        <button class="btn-secondary small" id="editor-import">Import</button>
+                        <button class="btn-secondary small" id="editor-export">Export</button>
+                        <button class="btn-secondary small" id="editor-close">Cancel</button>
+                    </div>
+                </div>
+                <div class="editor-canvas-container" id="editor-canvas">
+                    <div class="viz-controls" id="controls-editor">
+                        <button class="btn-icon zoom-in" title="Zoom In">+</button>
+                        <button class="btn-icon zoom-out" title="Zoom Out">-</button>
+                        <button class="btn-icon reset-view" title="Reset View">⟲</button>
+                    </div>
+                    <div class="editor-instructions">
+                        <p>Select Tool: Click to move nodes</p>
+                        <p>Node Tool: Click to add node</p>
+                        <p>Edge Tool: Drag from node to node</p>
+                        <p>Delete: Select node/edge and press Backspace or Enter</p>
                     </div>
                 </div>
             </div>
